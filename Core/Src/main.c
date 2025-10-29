@@ -89,6 +89,7 @@ static volatile uint8_t CurrentDeviceStatus = DEVICE_STATUS_IDLE;
 __attribute__((section(".noinit"))) volatile uint32_t MagicFlag;
 const uint32_t DFU_FLAG_VALUE = 0xDEADBEEFUL;
 
+
 static void CheckCurrentUSBPD(void)
 {
 	uint8_t total_charging_ports = 0;
@@ -101,11 +102,13 @@ static void CheckCurrentUSBPD(void)
 		return;
 	}
 
+	HAL_GPIO_WritePin(GPIOC, LED_R_Pin, GPIO_PIN_RESET);
 	switch(total_charging_ports) {
 		case 0:
 		{
 			  HAL_GPIO_WritePin(GPIOB, Power_EN1_Pin|Power_EN2_Pin, GPIO_PIN_SET);
 			  HAL_GPIO_WritePin(Power_EN3_GPIO_Port, Power_EN3_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(GPIOC, LED_R_Pin, GPIO_PIN_SET);
 			if(CurrentDeviceStatus != USB_STATUS_BAD_CHARGER) {
 				CurrentDeviceStatus = USB_STATUS_BAD_CHARGER_ATTACHED;
 			}

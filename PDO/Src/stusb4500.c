@@ -21,7 +21,7 @@
 #define REG_PD_TYPEC_STATUS				0x14
 #define REG_PRT_STATUS					0x16
 #define REG_PD_COMMAND_CTRL     		0x1A
-#define REG_RESET_CTRL         			0x23
+//#define REG_RESET_CTRL         			0x23
 #define REG_PE_FSM						0x29
 //#define REG_DEVICE_ID         			0x2F
 #define REG_RX_HEADER_LOW				0x31
@@ -71,6 +71,7 @@ typedef union
 } STUSB_RDO_REG_STATUS_RegTypeDef;
 
 PDO_t PDOs_Defaults[SNK_PDO_NUMB] = {{5000, 500}, {15000, 700}, {20000, 600}};  // 5V is standard compulsion
+
 
 void ITM_Print(const char *str) {
     if (!str) return;
@@ -317,22 +318,27 @@ HAL_StatusTypeDef STUSB4500_ReadCurrentPDO(uint8_t *total_charging_ports)
 		uint8_t reg = 0;
 
 		status = STUSB4500_ReadReg(REG_PE_FSM, &reg, sizeof(reg));
-		if(HAL_OK == status) {
-			if((reg >> 4) == 0x03) { // hard reset!
-				HAL_GPIO_WritePin(GPIOC, LED_G_Pin, GPIO_PIN_SET);
-				return HAL_BUSY;
-			}
+		if(HAL_OK != status) {
+			return status;
+		}
+
+		if(reg == 0b00111011) // PE_HARD_RESET_RECOVERY
+		{
+			return HAL_OK; // just close all USB ports
 		}
 
 		status = STUSB4500_ReadReg(REG_CC_STATUS, &reg, sizeof(reg));
-		if(HAL_OK == status) {
-			uint8_t cc1_state = reg & 0x03;
-			uint8_t cc2_state = (reg >> 2) & 0x03;
-
-			if((cc1_state == 0x03 || cc2_state == 0x03)) {
-				return HAL_BUSY;
-			}
+		if(HAL_OK != status) {
+			return status;
 		}
+
+		uint8_t cc1_state = reg & 0x03;
+		uint8_t cc2_state = (reg >> 2) & 0x03;
+
+		if((cc1_state == 0x03 || cc2_state == 0x03)) { // needs more negotiation
+			return HAL_BUSY;
+		}
+
 		return status;
 	}
 
@@ -383,7 +389,7 @@ HAL_StatusTypeDef STUSB4500_ReadCurrentPDO(uint8_t *total_charging_ports)
 		return status;
 	}
 
-	// just consider it as bad charger
+	// 5V chargers are just considered as bad chargers
 	if(object_pos == 1 && abs(voltage_mV - 5000) > 500) {
 		return status;
 	}
